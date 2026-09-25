@@ -104,8 +104,8 @@ python RL_generate.py \
     --device cuda \
     --batch_size 512 \
     --seed 42 \
-    --threshold 0.7 \
-    --n_epochs 20 \
+    --threshold 0.60 \
+    --n_epochs 15 \
     --optimize_n_epochs 5 \
     --save_frequency 10 \
     --save_payloads \
