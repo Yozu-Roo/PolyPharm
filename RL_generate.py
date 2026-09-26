@@ -340,6 +340,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--target_name', type=list, help='the name of multi targets', default=['ROR_gamma', 'DHODH'])
+    parser.add_argument('--data_path', type=Path, required=True, help='Path to the fine-tuning dataset CSV')
     parser.add_argument('--output_dir', type=Path, help='the output directory', default='./finetune_output_RD')
     parser.add_argument('--model_path', type=Path, help='the weights file (xxx.pth)',
                         default='./pretrain_output-v2/fold0_epoch32.pth')
@@ -367,9 +368,12 @@ if __name__ == '__main__':
 
     model, tokenizer = load_model(args.model_path, args.tokenizer_path)
     objective = scoring_function(os.path.join('./data', '+'.join(map(str, args.target_name))))
-    finetune_smi = []
-    for dataset in args.target_name:
-        finetune_smi += pd.read_csv(os.path.join('./data', '+'.join(map(str, args.target_name)), dataset+'.csv'))['smiles'].tolist()
+    finetune_smi = (
+        pd.read_csv(args.data_path)['SMILES']
+        .dropna()
+        .astype(str)
+        .tolist()
+    )
 
     optimise(finetune_smi, model, tokenizer, objective, args)
 
