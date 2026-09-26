@@ -78,6 +78,7 @@ python train_chembl_baseline.py
 python RL_generate.py \
     --target_name GSK3B JNK3 \
     --output_dir ./finetune_output_GJ \
+    --data_path ./data/GSK3B+JNK3/train.csv \
     --model_path ./pretrain_output/rs_mapping/fold0_epoch32.pth \
     --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
     --n_mol 10000 \
@@ -97,6 +98,7 @@ python RL_generate.py \
 ```bash
 python RL_generate.py \
     --target_name ROR_gamma DHODH \
+    --data_path ./data/ROR_gamma+DHODH/train.csv \
     --output_dir ./finetune_output_RD \
     --model_path ./pretrain_output/fold0_epoch32.pth \
     --tokenizer_path ./pretrain_output/tokenizer.pkl \
