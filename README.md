@@ -54,7 +54,7 @@ Recommended **Python 3.8**:
 
 ```bash
 conda env create -f environment.yml
-conda activate polygen
+conda activate polypharm
 ```
 
 ------
@@ -71,6 +71,26 @@ python train_chembl_baseline.py
 ------
 
 ### 3.4 🔧 Fine-tuning
+
+**Splitting the fine-tuning dataset**:
+
+```bash
+python split_finetune_dataset.py \
+    --ligands_set1 ./data/GSK3B+JNK3/GSK3B.csv \  # ./data/ROR_gamma+DHODH/ROR_gamma.csv for RORγt|DHODH benchmark task
+    --ligands_set2 ./data/GSK3B+JNK3/JNK3.csv \   # ./data/ROR_gamma+DHODH/DHODH.csv for RORγt|DHODH benchmark task
+    --output_dir ./data/GSK3B+JNK3/               # ./data/ROR_gamma+DHODH/ for RORγt|DHODH benchmark task
+    --train_ratio 0.7
+    --val_ratio 0.2
+    --test_ratio 0.1
+```
+
+The `train.csv`, `val.csv`, and `test.csv`—will be saved in the `output_dir`.
+
+**Hyperparameter selection**:
+
+Hyperparameters were selected separately for the two benchmark tasks. We evaluated the number of fine-tuning epochs (`n_epochs`) over the range of **5~25 with a step size of 5**, while fixing `threshold` at **0.60**. We then evaluated the elite-molecule screening threshold (`threshold`) over the range of **0.50~0.70 with a step size of 0.05**, while fixing `n_epochs` at the selected value. The remaining fine-tuning settings were kept unchanged.
+
+For each benchmark, the selected hyperparameters were subsequently used for the final fine-tuning run.
 
 **GSK3β|JNK3 benchmark task**:
 
