@@ -21,6 +21,8 @@ PolyPharm is a deep learning-based framework for multi-target drug design, capab
 ├── train_chembl_baseline.py  ← Pre-training script
 ├── RL_generate.py            ← Fine-tuning script
 ├── generate.py               ← Molecule generation script
+├── hyperparameter_search.py  ← Fine-tuning parameter selection script
+├── generate.py               ← Molecule generation script
 ```
 
 ## 2️⃣ Results
@@ -86,12 +88,6 @@ python split_finetune_dataset.py \
 
 The `train.csv`, `val.csv`, and `test.csv`—will be saved in the `output_dir`.
 
-**Hyperparameter selection**:
-
-Hyperparameters were selected separately for the two benchmark tasks. We evaluated the number of fine-tuning epochs (`n_epochs`) over the range of **5~25 with a step size of 5**, while fixing `threshold` at **0.60**. We then evaluated the elite-molecule screening threshold (`threshold`) over the range of **0.50~0.70 with a step size of 0.05**, while fixing `n_epochs` at the selected value. The remaining fine-tuning settings were kept unchanged.
-
-For each benchmark, the selected hyperparameters were subsequently used for the final fine-tuning run.
-
 **GSK3β|JNK3 benchmark task**:
 
 ```bash
@@ -142,6 +138,53 @@ python RL_generate.py \
 - Generated results and model weights are saved in `finetune_output_*/`
 - Multi-GPU users may modify `CUDA_VISIBLE_DEVICES`
 
+**Hyperparameter selection**:
+
+Hyperparameters were selected separately for the two benchmark tasks. We evaluated the number of fine-tuning epochs (`n_epochs`) over the range of **5~25 with a step size of 5**, while fixing `threshold` at **0.60**. We then evaluated the elite-molecule screening threshold (`threshold`) over the range of **0.50~0.70 with a step size of 0.05**, while fixing `n_epochs` at the selected value. The remaining fine-tuning settings were kept unchanged.
+
+The entire hyperparameter search can be performed automatically using:
+
+```bash
+python hyperparameter_search.py \
+    --target_name ROR_gamma DHODH \
+    --data_path ./data/ROR_gamma+DHODH/train.csv \
+    --val_data_path ./data/ROR_gamma+DHODH/val.csv \
+    --model_path ./pretrain_output/fold0_epoch32.pth \
+    --tokenizer_path ./pretrain_output/tokenizer.pkl \
+    --output_prefix ./hyperparam_RD \
+    --n_mol 30000 \
+    --generate_n_mol 10000 \
+    --device cuda \
+    --batch_size 512 \
+    --seed 42 \
+    --optimize_n_epochs 5 \
+    --save_frequency 10 \
+    --keep_top 10000
+```
+
+For the GSK3β|JNK3 benchmark task:
+
+```bash
+python hyperparameter_search.py \
+    --target_name GSK3B JNK3 \
+    --data_path ./data/GSK3B+JNK3/train.csv \
+    --val_data_path ./data/GSK3B+JNK3/val.csv \
+    --model_path ./pretrain_output/rs_mapping/fold0_epoch32.pth \
+    --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
+    --output_prefix ./hyperparam_GJ \
+    --n_mol 10000 \
+    --generate_n_mol 10000 \
+    --device cuda \
+    --batch_size 512 \
+    --seed 42 \
+    --optimize_n_epochs 5 \
+    --save_frequency 10 \
+    --keep_top 10000
+```
+After the script finishes running, CSV files containing the generated molecules corresponding to different parameters will be produced in the following directories: `hyperparam_XX_threshold_XX_generation/` `hyperparam_XX_epoch_XX_generation/`.
+
+Next, perform batch docking on the generated molecules using Auto Vina and calculate their QED and SA properties. Finally, calculate the USR docking scores and SR values ​​based on the evaluation metrics section of our manuscript; compare these results to select the parameter combination yielding the highest SR and USR docking scores as the model's hyperparameter settings.
+
 ------
 
 ### 3.5 🧪 Molecule Generation
@@ -153,6 +196,7 @@ python generate.py \
     --save_file RD_gen.csv
     --model_path ./finetune_output_RD/epoch_15_finetuned_model.pth \  
     --tokenizer_path ./pretrain_output/tokenizer.pkl \
+    --init_smi_path ./data/ROR_gamma+DHODH/test.csv \
     --n_mol 10000 \
     --device cuda \
     --filter \
