@@ -150,6 +150,7 @@ python RL_generate.py \
 python generate.py \
     --target_name ROR_gamma DHODH \  
     --output_dir ./generate_output_RD \
+    --save_file RD_gen.csv
     --model_path ./finetune_output_RD/epoch_15_finetuned_model.pth \  
     --tokenizer_path ./pretrain_output/tokenizer.pkl \
     --n_mol 10000 \
