@@ -116,6 +116,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--target_name', type=list, help='the name of multi targets', default=['ROR_gamma', 'DHODH'])
+    parser.add_argument('--init_smi_path', type=str, required=True, help='Path to the input SMILES file used for molecule generation.')
     parser.add_argument('--output_dir', type=Path, help='the output directory', default='./generate_output_RD')
     parser.add_argument('--save_file', type=Path, help='the save file', default='RD_gen.csv')
     parser.add_argument('--model_path', type=Path, help='the weights file (xxx.pth)',
@@ -137,7 +138,7 @@ if __name__ == '__main__':
     args.output_dir.mkdir(parents=False, exist_ok=True)
 
     model, tokenizer = load_model(args.model_path, args.tokenizer_path)
-    init_smi = pd.read_csv(os.path.join('./data', '+'.join(map(str, args.target_name)), 'init_molecules.csv'))['smiles'].tolist()
+    init_smi = pd.read_csv(args.init_smi_path)['smiles'].tolist()
 
     generate(init_smi, model, tokenizer, args)
 
