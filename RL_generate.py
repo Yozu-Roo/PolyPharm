@@ -41,7 +41,7 @@ from train_chembl_baseline import CFG
 from torch.optim import AdamW
 RDLogger.DisableLog('rdApp.*')
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # 设置只使用编号为0的GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'  
 PP_TYPE_WEIGHT = [1.4891304347826086, 1.0, 8.058823529411764, 1.0378787878787878, 1.8026315789473686, 2.174603174603175,
                   17.125]
 @total_ordering
@@ -132,58 +132,13 @@ def get_ppgraph(smiles_list):
     return pp_graphs
 
 
-def ClusterFps(fps, cutoff=0.2):
-    # first generate the distance matrix:
-    dists = []
-    nfps = len(fps)
-    for i in range(1, nfps):
-        sims = DataStructs.BulkTanimotoSimilarity(fps[i], fps[:i])
-        dists.extend([1-x for x in sims])
-
-    # now cluster the data:
-    cs = Butina.ClusterData(dists, nfps, cutoff, isDistData=True)
-    return cs
-
-
-def sample_from_cluster(clusters, data):
-    data = np.array(data)
-    new_data = []
-    label_nums = []
-
-    for i in range(len(clusters)):
-        d = data[list(clusters[i])].tolist()
-        l = [i] * len(clusters[i])
-        new_data.extend(list(zip(d, l)))
-        label_nums.append(len(clusters[i]))
-
-    median_value = int(statistics.median(label_nums))
-    print(f"total clusters:{len(label_nums)}   max cluster nums:{max(label_nums)}   mid cluster nums:{median_value}")
-    new_data = pd.DataFrame(new_data, columns=["data", "label"])
-
-    # sample according median_value
-    final_res = []
-    cluster_center = []
-    for i in range(len(label_nums)):
-        cluster_data = new_data[new_data["label"] == i]
-        if median_value < len(cluster_data):
-            sample_data = cluster_data.sample(n=median_value, replace=False)["data"]
-        else:
-            sample_data = cluster_data["data"]
-        final_res.extend(sample_data.tolist())
-        cluster_center.append(cluster_data.iloc[0]["data"])
-
-    return final_res, cluster_center
-
-
-
-
-def optimise(inint_population, model, tokenizer, objective, args):
+def finetune(inint_population, model, tokenizer, objective, args):
     results: List[OptResult] = []
     results_fp = []
     seen: Set[str] = set()
-    test_set: List[str] = []
-    train_set: List[str] = []
-    multi = 1.
+    candidate_set: List[str] = []
+    elite_set: List[str] = []
+
     offset = 0.05
     threshold = args.threshold
 
@@ -191,7 +146,6 @@ def optimise(inint_population, model, tokenizer, objective, args):
     scheduler = CosineAnnealingLR(optimizer, T_max=CFG.T_max, eta_min=CFG.min_lr, last_epoch=-1)
     model.to(args.device)
 
-    
     for epoch in range(0, 1 + args.n_epochs):
         if epoch == 0:
             canonicalized_samples = set(inint_population)
@@ -207,10 +161,7 @@ def optimise(inint_population, model, tokenizer, objective, args):
             model.eval()
             model.to(args.device)
             with torch.no_grad():
-                g = get_ppgraph(test_set) * (args.n_mol // len(test_set) + 2)
-                if epoch % 5 == 0:
-                    multi = multi - 0.25 if multi >= 1.25 else 1
-                g = g[:int(args.n_mol * multi)]
+                g = get_ppgraph(candidate_set) * (args.n_mol // len(candidate_set) + 2)
                 res = []
                 for i in tqdm(range(len(g) // args.batch_size + 1)):
                     start_idx = i * args.batch_size
@@ -222,55 +173,30 @@ def optimise(inint_population, model, tokenizer, objective, args):
 
         # new molecules seen
         payload = list(canonicalized_samples.difference(seen))
-        payload.sort()  # necessary for reproducibility between different runs
-
         # add the new stuff to tracker
-        seen.update(canonicalized_samples)
-
+        seen.update(payload)
+    
         scores = objective.score_list(payload)
 
-        int_results = [OptResult(smiles=smiles, score=score) for smiles, score in zip(payload, scores)]
+        int_results = [OptResult(smiles=smiles, score=score) for smiles, score in zip(payload, scores) if check_ppgraph(smiles)]
         int_results = sorted(int_results, reverse=True)
         
-        # sampling
-        # train_mols, test_mols = stratified_sampling(int_results, args.n_mol, args.threshold)
-
-
-        # store the molecules
-        keep_top = args.keep_top
-        test_set = []
+        # update threshold
         if epoch > 0 and epoch % 10 == 0:
             threshold += offset
         
-        # calculate fp and add result
-        for ir in int_results:
-            if check_ppgraph(ir.smiles) == True:
-                if ir.score >= args.threshold:
-                    results.append(ir)
-                test_set.append(ir.smiles)
-        
-        train_set = [i.smiles for i in results if i.score >= threshold]
-        
-        # # clustering
-        # # clusters = ClusterFps(results_fp, cutoff=0.7)
-        # # subset = [i.smiles for i in results]
-        # # subset, cluster_center = sample_from_cluster(clusters, subset)
-        
-
-        # # split into train and test sets at 75%
-        # invalid_size = args.n_mol // 4
-        # test_set = invalid_set[:invalid_size]
-        # test_set.extend(train_set[:args.n_mol - invalid_size])
-        # print(f"invalid size: {invalid_size}, valid size:{args.n_mol - invalid_size}")
-
-        np.random.shuffle(test_set)        
-        np.random.shuffle(train_set)
-        print(f"test size: {len(test_set)}")
+        # store the molecules
+        int_candidate_set = int_results[:args.keep_top]
+        candidate_set += [s for s.smiles in int_candidate_set]
+        elite_set += [for s in int_candidate_set if s.score >= threshold]
+               
+        np.random.shuffle(elite_set)
+        print(f"elite size: {len(elite_set)}")
 
         # run training
         if args.optimize_n_epochs > 0:
             print(f"train size: {len(train_set)}")
-            train_dataset = SemiSmilesDataset(train_set, tokenizer, use_random_input_smiles=True,
+            train_dataset = SemiSmilesDataset(elite_set, tokenizer, use_random_input_smiles=True,
                                               use_random_target_smiles=True)
             train_loader = DataLoader(train_dataset,
                                       batch_size=CFG.batch_size,
@@ -321,34 +247,16 @@ def optimise(inint_population, model, tokenizer, objective, args):
                 for smiles, score in sorted(zip(payload, scores), key=lambda x: x[1], reverse=True):
                     handle.write(f'{smiles},{score}\n')
 
-        # write out the current results
-        results = sorted(results, reverse=True)
-        with open(os.path.join(args.output_dir, f'GDM_ongoing_top_scoring_molecules.txt'), 'w') as handle:
-            for d in results:
-                handle.write(f'{d.smiles},{d.score}\n')
-
-
-    # save final sample
-    # results = sorted(results, reverse=True)
-    # with open(os.path.join(args.output_dir, "GDM_final_molecules.txt"), 'w') as handle:
-    #     for d in results:
-    #         handle.write(f'{d.smiles},{d.score}\n')
-
-
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--target_name', type=list, help='the name of multi targets', default=['ROR_gamma', 'DHODH'])
     parser.add_argument('--data_path', type=Path, required=True, help='Path to the fine-tuning dataset CSV')
     parser.add_argument('--output_dir', type=Path, help='the output directory', default='./finetune_output_RD')
-    parser.add_argument('--model_path', type=Path, help='the weights file (xxx.pth)',
-                        default='./pretrain_output-v2/fold0_epoch32.pth')
-    parser.add_argument('--tokenizer_path', type=Path, help='the saved tokenizer (tokenizer.pkl)',
-                        default='./pretrain_output-v2/tokenizer.pkl')
+    parser.add_argument('--model_path', type=Path, help='the weights file (xxx.pth)', default='./pretrain_output-v2/fold0_epoch32.pth')
+    parser.add_argument('--tokenizer_path', type=Path, help='the saved tokenizer (tokenizer.pkl)', default='./pretrain_output-v2/tokenizer.pkl')
 
-    parser.add_argument('--n_mol', type=int, default=30000, help='number of generated molecules for each '
-                                                                 'pharmacophore file')
+    parser.add_argument('--n_mol', type=int, default=30000, help='number of generated molecules for each pharmacophore file')
     parser.add_argument('--device', type=str, default='cuda', help='`cpu` or `cuda`')
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--seed', type=int, default=42)
@@ -375,9 +283,7 @@ if __name__ == '__main__':
         .tolist()
     )
 
-    optimise(finetune_smi, model, tokenizer, objective, args)
-
-
+    finetune(finetune_smi, model, tokenizer, objective, args)
     print('done')
 
 
