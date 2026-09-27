@@ -46,15 +46,29 @@ PP_TYPE_WEIGHT = [1.4891304347826086, 1.0, 8.058823529411764, 1.0378787878787878
                   17.125]
 @total_ordering
 class OptResult:
-    def __init__(self, smiles: str, score: float) -> None:
+    def __init__(self, smiles: str, score: float, p_a: float, p_b: float) -> None:
         self.smiles = smiles
+        self.p_a = p_a
+        self.p_b = p_b
         self.score = score
 
+    @property
+    def mean(self):
+        return (self.p_a + self.p_b) / 2
+
+    @property
+    def abs_diff(self):
+        return abs(self.p_a - self.p_b)
+
     def __eq__(self, other):
-        return (self.score, self.smiles) == (other.score, other.smiles)
+        if not isinstance(other, OptResult):
+            return NotImplemented
+        return self.smiles == other.smiles
 
     def __lt__(self, other):
-        return (self.score, self.smiles) < (other.score, other.smiles)
+        if not isinstance(other, OptResult):
+            return NotImplemented
+        return (-self.mean, self.abs_diff) < (-other.mean, other.abs_diff)
 
 
 def load_model(model_path, tokenizer_path):
@@ -176,10 +190,10 @@ def finetune(inint_population, model, tokenizer, objective, args):
         # add the new stuff to tracker
         seen.update(payload)
     
-        scores = objective.score_list(payload)
+        scores, p_a, p_b = objective.score_list(payload)
 
-        int_results = [OptResult(smiles=smiles, score=score) for smiles, score in zip(payload, scores) if check_ppgraph(smiles)]
-        int_results = sorted(int_results, reverse=True)
+        int_results = [OptResult(smiles=smiles, score=score, p_a=p_a, p_b=p_b) for smiles, score in zip(payload, scores) if check_ppgraph(smiles)]
+        int_results = sorted(int_results)
         
         # update threshold
         if epoch > 0 and epoch % 10 == 0:
