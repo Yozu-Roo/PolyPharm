@@ -188,22 +188,16 @@ class PGMG(nn.Module):
         vvs = vv + self.pp_seg_encoding  # seq,batch,feat
         return vv, vvs, pp_mask
 
-    def expand_then_fusing(self, z, pp_mask, vvs, flag='pretrain'):
+    def expand_then_fusing(self, z, pp_mask, vvs):
         zz = self.expand(z)  # seq batch feat
         zz = self.pos_encoding(zz)  ###
         zzs = zz + self.zz_seg_encoding
 
         # cat pp and latent
-        # vvs = vvs.transpose(1, 0)
-        # x = [vvs[i][~pp_mask[i]].mean() for i in range(vvs.size(0))]
-
-
         full_mask = zz.new_zeros(zz.shape[1], zz.shape[0])
-        if flag == 'pretrain':
-            full_mask = torch.cat((pp_mask, full_mask), dim=1)  # batch seq_plus
+        full_mask = torch.cat((pp_mask, full_mask), dim=1)  # batch seq_plus
 
-        # zzz = torch.cat((vvs, zzs), dim=0)  # seq_plus batch feat
-        zzz = zzs
+        zzz = torch.cat((vvs, zzs), dim=0)  # seq_plus batch feat
         #if not self.remove_dencoder:
         zzz = self.dencoder(zzz, full_mask)
 
@@ -215,7 +209,7 @@ class PGMG(nn.Module):
         vv, vvs, pp_mask = self.process_p(pp_graphs)      
 
         z, kl_loss = self.calculate_z(inputs, input_mask, vvs, pp_mask)
-        zzz, encoder_mask = self.expand_then_fusing(z, pp_mask, vvs, flag)
+        zzz, encoder_mask = self.expand_then_fusing(z, pp_mask, vvs)
 
         if flag == "finetune":
             zzz, encoder_mask = zzz.detach(), encoder_mask.detach()
