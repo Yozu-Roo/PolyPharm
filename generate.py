@@ -102,7 +102,7 @@ def generate(init_mols, model, tokenizer, args):
 
     # save final sample
     count = 0
-    with open(os.path.join(args.output_dir, "generated_molecules-s2.txt"), 'w') as handle:
+    with open(os.path.join(args.output_dir, args.save_file"), 'w') as handle:
         for d in final_results:
             if count <= 10000:
                 handle.write(f'{d}\n')
@@ -116,7 +116,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--target_name', type=list, help='the name of multi targets', default=['ROR_gamma', 'DHODH'])
-    parser.add_argument('--output_dir', type=Path, help='the output directory', default='./generate_output_RD-ablation')
+    parser.add_argument('--output_dir', type=Path, help='the output directory', default='./generate_output_RD')
+    parser.add_argument('--save_file', type=Path, help='the save file', default='RD_gen.csv')
     parser.add_argument('--model_path', type=Path, help='the weights file (xxx.pth)',
                         default='./finetune_output_RD/epoch_15_finetuned_model.pth')
     parser.add_argument('--tokenizer_path', type=Path, help='the saved tokenizer (tokenizer.pkl)',
