@@ -77,6 +77,7 @@ def main():
     parser = argparse.ArgumentParser(description="Automated hyperparameter search for PolyPharm.")
     parser.add_argument("--target_name", nargs=2, required=True, help="Two target names, e.g. GSK3B JNK3 or ROR_gamma DHODH")
     parser.add_argument("--data_path", required=True, help="Path to the fine-tuning training dataset.")
+    parser.add_argument("--val_data_path", required=True, help="Path to the validation-set CSV file.")
     parser.add_argument("--model_path", required=True, help="Path to the pre-trained model.")
     parser.add_argument("--tokenizer_path", required=True, help="Path to the pre-trained tokenizer.")
     parser.add_argument("--output_prefix", required=True, help="Prefix for hyperparameter-search output directories.")
