@@ -1,4 +1,4 @@
-name: polygen
+name: polypharm
 channels:
   - conda-forge
   - defaults
