@@ -183,7 +183,7 @@ python hyperparameter_search.py \
 ```
 After the script finishes running, CSV files containing the generated molecules corresponding to different parameters will be produced in the following directories: `hyperparam_**_threshold_**_generation/` `hyperparam_**_epoch_**_generation/`.
 
-Next, perform batch docking on the generated molecules using Auto Vina and calculate their QED and SA properties. Finally, calculate the USR docking scores and SR values ​​based on the evaluation metrics section of our manuscript; compare these results to select the parameter combination yielding the highest SR and USR docking scores as the model's hyperparameter settings.
+Next, perform batch docking on the generated molecules using [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina/releases) and calculate their `QED` and `SA` properties. Finally, calculate the `USR docking` scores and `SR` values ​​based on the evaluation metrics section of our manuscript; compare these results to select the parameter combination yielding the highest `SR` and `USR docking` scores as the model's hyperparameter settings.
 
 ------
 
