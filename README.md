@@ -82,8 +82,8 @@ python split_finetune_dataset.py \
     --ligands_set2 ./data/GSK3B+JNK3/JNK3.csv \   # ./data/ROR_gamma+DHODH/DHODH.csv for RORγt|DHODH benchmark task
     --output_dir ./data/GSK3B+JNK3/ \             # ./data/ROR_gamma+DHODH/ for RORγt|DHODH benchmark task
     --train_ratio 0.7 \
-    --val_ratio 0.2 \
-    --test_ratio 0.1
+    --val_ratio 0.1 \
+    --test_ratio 0.2
 ```
 
 The `train.csv`, `val.csv`, and `test.csv`—will be saved in the `output_dir`.
