@@ -88,7 +88,7 @@ python utils/split_finetune_dataset.py \
 
 ```bash
 python utils/split_finetune_dataset.py \
-    --ligands_set1 ./data/ROR_gamma+DHODH/ROR_gamma.csv \  # 
+    --ligands_set1 ./data/ROR_gamma+DHODH/ROR_gamma.csv \  
     --ligands_set2 ./data/ROR_gamma+DHODH/DHODH.csv \  
     --output_dir ./data/ROR_gamma+DHODH/ \             
     --train_ratio 0.7 \
