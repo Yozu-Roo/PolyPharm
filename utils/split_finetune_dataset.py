@@ -111,7 +111,7 @@ def build_pharmacophore_groups(df, smiles_column):
     return groups, invalid_indices
 
 
-def split_groups(df, groups, train_ratio=0.7, val_ratio=0.2, test_ratio=0.1, seed=42):
+def split_groups(df, groups, train_ratio=0.7, val_ratio=0.1, test_ratio=0.2, seed=42):
     if not np.isclose(train_ratio + val_ratio + test_ratio, 1.0):
         raise ValueError("train_ratio + val_ratio + test_ratio must equal 1.")
 
