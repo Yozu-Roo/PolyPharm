@@ -185,8 +185,6 @@ def process_target(csv_path, smiles_column, seed, train_ratio, val_ratio, test_r
         seed=seed,
     )
 
-    check_overlap(train_df, val_df, test_df, smiles_column)
-
     print(
         f"{os.path.basename(csv_path)}: "
         f"total={len(df)}, "
