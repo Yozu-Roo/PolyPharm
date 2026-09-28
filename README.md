@@ -106,7 +106,7 @@ python RL_generate.py \
     --optimize_n_epochs 5 \
     --save_frequency 10 \
     --save_payloads \
-    --keep_top 10000
+    --keep_top 5000
 ```
 
 **RORγt|DHODH benchmark task**:
@@ -118,7 +118,7 @@ python RL_generate.py \
     --output_dir ./finetune_output_RD \
     --model_path ./pretrain_output/fold0_epoch32.pth \
     --tokenizer_path ./pretrain_output/tokenizer.pkl \
-    --n_mol 30000 \
+    --n_mol 10000 \
     --device cuda \
     --batch_size 512 \
     --seed 42 \
@@ -127,7 +127,7 @@ python RL_generate.py \
     --optimize_n_epochs 5 \
     --save_frequency 10 \
     --save_payloads \
-    --keep_top 10000
+    --keep_top 5000
 ```
 
 - `--tokenizer_path ` is your pre-trained model path
