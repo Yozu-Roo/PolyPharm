@@ -77,7 +77,7 @@ python train_chembl_baseline.py
 **Splitting the fine-tuning dataset**:
 
 ```bash
-python split_finetune_dataset.py \
+python utils/split_finetune_dataset.py \
     --ligands_set1 ./data/GSK3B+JNK3/GSK3B.csv \  # ./data/ROR_gamma+DHODH/ROR_gamma.csv for RORγt|DHODH benchmark task
     --ligands_set2 ./data/GSK3B+JNK3/JNK3.csv \   # ./data/ROR_gamma+DHODH/DHODH.csv for RORγt|DHODH benchmark task
     --output_dir ./data/GSK3B+JNK3/ \             # ./data/ROR_gamma+DHODH/ for RORγt|DHODH benchmark task
