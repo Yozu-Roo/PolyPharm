@@ -256,7 +256,7 @@ def finetune(inint_population, model, tokenizer, objective, args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target_name', type=list, help='the name of multi targets', default=['ROR_gamma', 'DHODH'])
+    parser.add_argument('--target_name', nargs=2, help='the names of two targets', default=['ROR_gamma', 'DHODH'])
     parser.add_argument('--data_path', type=Path, required=True, help='Path to the fine-tuning dataset CSV')
     parser.add_argument('--output_dir', type=Path, help='the output directory', default='./finetune_output_RD')
     parser.add_argument('--model_path', type=Path, help='the weights file (xxx.pth)', default='./pretrain_output-v2/fold0_epoch32.pth')
