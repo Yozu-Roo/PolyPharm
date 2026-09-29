@@ -184,8 +184,8 @@ def finetune(inint_population, model, tokenizer, objective, args):
         seen.update(payload)
     
         scores, p_a, p_b = objective.score_list(payload)
-
-        int_results = [OptResult(smiles=smiles, score=score, p_a=p_a, p_b=p_b) for smiles, score in zip(payload, scores) if check_ppgraph(smiles)]
+        
+        int_results = [OptResult(smiles=smiles, score=score, p_a=p_a_i, p_b=p_b_i) for smiles, score, p_a_i, p_b_i in zip(payload, scores, p_a, p_b) if check_ppgraph(smiles)]
         int_results = sorted(int_results)
         
         # update threshold
