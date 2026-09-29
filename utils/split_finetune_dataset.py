@@ -18,83 +18,26 @@ PHAR_MAPPING = {
     "LumpedHydrophobe": 6,
 }
 
-
-def get_pharmacophore_features(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        return None, None
-
-    smiles = Chem.MolToSmiles(mol)
-    mol = Chem.MolFromSmiles(smiles)
-
-    fdef_name = os.path.join(RDConfig.RDDataDir, "BaseFeatures.fdef")
-    factory = ChemicalFeatures.BuildFeatureFactory(fdef_name)
-    feats = factory.GetFeaturesForMol(mol)
-
-    features = []
-    for feat in feats:
-        family = feat.GetFamily()
-        if family not in PHAR_MAPPING:
-            continue
-
-        atom_indices = tuple(sorted(feat.GetAtomIds()))
-        features.append((PHAR_MAPPING[family], atom_indices))
-
-    return mol, features
+FDEF_NAME = os.path.join(RDConfig.RDDataDir, "BaseFeatures.fdef")
+FEATURE_FACTORY = ChemicalFeatures.BuildFeatureFactory(FDEF_NAME)
 
 
 def get_pharmacophore_signature(smiles):
-    mol, features = get_pharmacophore_features(smiles)
-
-    if mol is None or not features:
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
         return None
 
-    conformer = mol.GetConformer()
-    feature_info = []
+    features = FEATURE_FACTORY.GetFeaturesForMol(mol)
+    phar_types = [
+        PHAR_MAPPING[feat.GetFamily()]
+        for feat in features
+        if feat.GetFamily() in PHAR_MAPPING
+    ]
 
-    for phar_type, atom_indices in features:
-        coords = []
+    if not phar_types:
+        return None
 
-        for atom_idx in atom_indices:
-            pos = conformer.GetAtomPosition(atom_idx)
-            coords.append([pos.x, pos.y, pos.z])
-
-        center = np.mean(coords, axis=0)
-
-        feature_info.append({
-            "type": phar_type,
-            "size": len(atom_indices),
-            "center": center,
-        })
-
-    feature_info.sort(
-        key=lambda x: (
-            x["type"],
-            x["size"],
-            tuple(np.round(x["center"], 3))
-        )
-    )
-
-    node_features = tuple((feature["type"], feature["size"]) for feature in feature_info)
-    pairwise_distances = []
-
-    for i in range(len(feature_info)):
-        for j in range(i + 1, len(feature_info)):
-            type_i = feature_info[i]["type"]
-            type_j = feature_info[j]["type"]
-
-            distance = np.linalg.norm(feature_info[i]["center"] - feature_info[j]["center"])
-            pairwise_distances.append(
-                (
-                    min(type_i, type_j),
-                    max(type_i, type_j),
-                    round(float(distance), 1)
-                )
-            )
-
-    pairwise_distances = tuple(sorted(pairwise_distances))
-
-    return node_features, pairwise_distances
+    return tuple(sorted(phar_types))
 
 
 def build_pharmacophore_groups(df, smiles_column):
@@ -105,103 +48,101 @@ def build_pharmacophore_groups(df, smiles_column):
         signature = get_pharmacophore_signature(smiles)
         if signature is None:
             invalid_indices.append(idx)
-            continue
-        groups[signature].append(idx)
+        else:
+            groups[signature].append(idx)
 
     return groups, invalid_indices
 
 
-def split_groups(df, groups, train_ratio=0.7, val_ratio=0.1, test_ratio=0.2, seed=42):
+def split_groups(
+    df,
+    groups,
+    train_ratio=0.7,
+    val_ratio=0.1,
+    test_ratio=0.2,
+    seed=42,
+):
     if not np.isclose(train_ratio + val_ratio + test_ratio, 1.0):
-        raise ValueError("train_ratio + val_ratio + test_ratio must equal 1.")
+        raise ValueError("Split ratios must sum to 1.")
 
     rng = random.Random(seed)
     group_items = list(groups.items())
     rng.shuffle(group_items)
     group_items.sort(key=lambda x: len(x[1]), reverse=True)
 
-    total = len(df)
     targets = {
-        "train": total * train_ratio,
-        "val": total * val_ratio,
-        "test": total * test_ratio,
+        "train": len(df) * train_ratio,
+        "val": len(df) * val_ratio,
+        "test": len(df) * test_ratio,
     }
-
     indices = {"train": [], "val": [], "test": []}
     counts = {"train": 0, "val": 0, "test": 0}
 
     for _, group_indices in group_items:
-        group_size = len(group_indices)
-        deficits = {split: targets[split] - counts[split] for split in targets}
-        split = max(deficits, key=deficits.get)
-
+        split = max(
+            targets,
+            key=lambda x: targets[x] - counts[x]
+        )
         indices[split].extend(group_indices)
-        counts[split] += group_size
+        counts[split] += len(group_indices)
 
-    train_df = df.loc[indices["train"]].copy()
-    val_df = df.loc[indices["val"]].copy()
-    test_df = df.loc[indices["test"]].copy()
+    result = {}
+    for split in ["train", "val", "test"]:
+        result[split] = (
+            df.loc[indices[split]]
+            .sample(frac=1, random_state=seed)
+            .reset_index(drop=True)
+        )
 
-    train_df = train_df.sample(frac=1, random_state=seed).reset_index(drop=True)
-    val_df = val_df.sample(frac=1, random_state=seed).reset_index(drop=True)
-    test_df = test_df.sample(frac=1, random_state=seed).reset_index(drop=True)
-
-    return train_df, val_df, test_df
-
-
-def get_signatures(df, smiles_column):
-    signatures = set()
-    for smiles in df[smiles_column]:
-        signature = get_pharmacophore_signature(smiles)
-        if signature is not None:
-            signatures.add(signature)
-
-    return signatures
+    return result["train"], result["val"], result["test"]
 
 
-def process_target(csv_path, smiles_column, seed, train_ratio, val_ratio, test_ratio):
+def process_target(
+    csv_path,
+    smiles_column,
+    seed,
+    train_ratio,
+    val_ratio,
+    test_ratio,
+):
     df = pd.read_csv(csv_path)
+
     if smiles_column not in df.columns:
-        raise ValueError(f"Column '{smiles_column}' not found in {csv_path}.")
+        raise ValueError(
+            f"Column '{smiles_column}' not found in {csv_path}."
+        )
 
-    df = df.dropna(
-        subset=[smiles_column]
-    ).drop_duplicates(
-        subset=[smiles_column]
-    ).reset_index(drop=True)
+    df = (
+        df.dropna(subset=[smiles_column])
+        .drop_duplicates(subset=[smiles_column])
+        .reset_index(drop=True)
+    )
 
-    groups, invalid_indices = build_pharmacophore_groups(df, smiles_column)
+    groups, invalid_indices = build_pharmacophore_groups(
+        df, smiles_column
+    )
 
     if invalid_indices:
         df = df.drop(index=invalid_indices).reset_index(drop=True)
-        groups, _ = build_pharmacophore_groups(df, smiles_column)
+        groups, _ = build_pharmacophore_groups(
+            df, smiles_column
+        )
 
-    train_df, val_df, test_df = split_groups(
+    return split_groups(
         df,
         groups,
-        train_ratio=train_ratio,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-        seed=seed,
+        train_ratio,
+        val_ratio,
+        test_ratio,
+        seed,
     )
-
-    print(
-        f"{os.path.basename(csv_path)}: "
-        f"total={len(df)}, "
-        f"train={len(train_df)}, "
-        f"val={len(val_df)}, "
-        f"test={len(test_df)}, "
-        f"groups={len(groups)}"
-    )
-
-    return train_df, val_df, test_df
 
 
 def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
 
     train1, val1, test1 = process_target(
-        args.target1,
+        args.ligands_set1,
         args.smiles_column,
         args.seed,
         args.train_ratio,
@@ -210,7 +151,7 @@ def main(args):
     )
 
     train2, val2, test2 = process_target(
-        args.target2,
+        args.ligands_set2,
         args.smiles_column,
         args.seed,
         args.train_ratio,
@@ -226,36 +167,37 @@ def main(args):
     val = val.sample(frac=1, random_state=args.seed).reset_index(drop=True)
     test = test.sample(frac=1, random_state=args.seed).reset_index(drop=True)
 
-    train_path = os.path.join(args.output_dir, "train.csv")
-    val_path = os.path.join(args.output_dir, "val.csv")
-    test_path = os.path.join(args.output_dir, "test.csv")
-
-    train.to_csv(train_path, index=False)
-    val.to_csv(val_path, index=False)
-    test.to_csv(test_path, index=False)
-
-    total = len(train) + len(val) + len(test)
-
-    print(
-        f"Final dataset: "
-        f"train={len(train)} ({len(train) / total:.2%}), "
-        f"val={len(val)} ({len(val) / total:.2%}), "
-        f"test={len(test)} ({len(test) / total:.2%})"
+    train.to_csv(
+        os.path.join(args.output_dir, "train.csv"),
+        index=False,
+    )
+    val.to_csv(
+        os.path.join(args.output_dir, "val.csv"),
+        index=False,
+    )
+    test.to_csv(
+        os.path.join(args.output_dir, "test.csv"),
+        index=False,
     )
 
+    print(
+        f"Train: {len(train)}, "
+        f"Validation: {len(val)}, "
+        f"Test: {len(test)}"
+    )
     print(f"Saved to: {args.output_dir}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Finetune dataset splitting.")
-    parser.add_argument("--ligands_set1", type=str, required=True, help="Path to the first target ligand CSV.")
-    parser.add_argument("--ligands_set2", type=str, required=True, help="Path to the second target ligand CSV.")
-    parser.add_argument("--output_dir", type=str, required=True, help="Output directory.")
-    parser.add_argument("--smiles_column", type=str, default="SMILES", help="Name of the SMILES column.")
-    parser.add_argument("--train_ratio", type=float, default=0.7)
-    parser.add_argument("--val_ratio", type=float, default=0.2)
-    parser.add_argument("--test_ratio", type=float, default=0.1)
-    parser.add_argument("--seed", type=int, default=42)
+    parser = argparse.ArgumentParser(description="Finetune dataset splitting.") 
+    parser.add_argument("--ligands_set1", type=str, required=True, help="Path to the first target ligand CSV.") 
+    parser.add_argument("--ligands_set2", type=str, required=True, help="Path to the second target ligand CSV.") 
+    parser.add_argument("--output_dir", type=str, required=True, help="Output directory.") 
+    parser.add_argument("--smiles_column", type=str, default="SMILES", help="Name of the SMILES column.") 
+    parser.add_argument("--train_ratio", type=float, default=0.7) 
+    parser.add_argument("--val_ratio", type=float, default=0.1) 
+    parser.add_argument("--test_ratio", type=float, default=0.2) 
+    parser.add_argument("--seed", type=int, default=42) 
     args = parser.parse_args()
-    
+    print(f"Arguments: {args}")
     main(args)
