@@ -368,9 +368,9 @@ class BatchScoringFunction(ScoringFunction):
 
         scores = [self.corrupt_score if raw_score is None
                   else self.modify_score(raw_score)
-                  for raw_score in raw_scores]
+                  for raw_score in raw_scores[0]]
 
-        return scores
+        return [scores, raw_scores[1], raw_scores[2]]
 
     @abstractmethod
     def raw_score_list(self, smiles_list: List[str]) -> List[float]:
