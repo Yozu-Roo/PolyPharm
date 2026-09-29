@@ -106,7 +106,7 @@ python RL_generate.py \
     --output_dir ./finetune_output_GJ \
     --data_path ./data/GSK3B+JNK3/train.csv \
     --model_path ./pretrain_output/fold0_epoch32.pth \
-    --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
+    --tokenizer_path ./pretrain_output/tokenizer.pkl \
     --n_mol 10000 \
     --device cuda \
     --batch_size 512 \
