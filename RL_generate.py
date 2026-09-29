@@ -209,7 +209,6 @@ def finetune(inint_population, model, tokenizer, objective, args):
 
         # run training
         if args.optimize_n_epochs > 0:
-            print(f"train size: {len(train_set)}")
             train_dataset = SemiSmilesDataset(elite_set, tokenizer, use_random_input_smiles=True,
                                               use_random_target_smiles=True)
             train_loader = DataLoader(train_dataset,
