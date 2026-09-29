@@ -138,7 +138,7 @@ if __name__ == '__main__':
     args.output_dir.mkdir(parents=False, exist_ok=True)
 
     model, tokenizer = load_model(args.model_path, args.tokenizer_path)
-    init_smi = pd.read_csv(args.init_smi_path)['smiles'].tolist()
+    init_smi = pd.read_csv(args.init_smi_path)['SMILES'].tolist()
 
     generate(init_smi, model, tokenizer, args)
 
