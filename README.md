@@ -180,8 +180,8 @@ python RL_generate.py \
 >     --target_name GSK3B JNK3 \
 >     --data_path ./data/GSK3B+JNK3/train.csv \
 >     --val_data_path ./data/GSK3B+JNK3/val.csv \
->     --model_path ./pretrain_output/rs_mapping/fold0_epoch32.pth \
->     --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
+>     --model_path ./pretrain_output/fold0_epoch32.pth \
+>     --tokenizer_path ./pretrain_output/tokenizer.pkl \
 >     --output_prefix ./hyperparam_GJ \
 >     --n_mol 10000 \
 >     --generate_n_mol 10000 \
