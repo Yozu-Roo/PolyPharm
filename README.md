@@ -170,7 +170,7 @@ python RL_generate.py \
 >     --seed 42 \
 >     --optimize_n_epochs 5 \
 >     --save_frequency 10 \
->     --keep_top 10000
+>     --keep_top 5000
 > ```
 >
 > For the GSK3β|JNK3 benchmark task:
@@ -190,7 +190,7 @@ python RL_generate.py \
 >     --seed 42 \
 >     --optimize_n_epochs 5 \
 >     --save_frequency 10 \
->     --keep_top 10000
+>     --keep_top 5000
 > ```
 >
 > After the script finishes, CSV files containing the generated molecules for different parameter settings will be produced in the following directories:
