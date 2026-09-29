@@ -98,7 +98,7 @@ python utils/split_finetune_dataset.py \
 
 The `train.csv`, `val.csv`, and `test.csv`—will be saved in the `output_dir`.
 
-**GSK3β|JNK3 benchmark task**:
+**Fine-tune on GSK3β|JNK3 benchmark task**:
 
 ```bash
 python RL_generate.py \
@@ -119,7 +119,7 @@ python RL_generate.py \
     --keep_top 5000
 ```
 
-**RORγt|DHODH benchmark task**:
+**Fine-tune on RORγt|DHODH benchmark task**:
 
 ```bash
 python RL_generate.py \
