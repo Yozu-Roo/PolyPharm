@@ -2,7 +2,7 @@
 
 PolyPharm is a deep learning-based framework for multi-target drug design, capable of generating molecules with potential activities against multiple targets. 
 
-## 1️⃣ Directory Structure & Key Files
+## 📁 Directory Structure & Key Files
 
 ```text
 /                         ← Root directory
@@ -25,7 +25,7 @@ PolyPharm is a deep learning-based framework for multi-target drug design, capab
 ├── generate.py               ← Molecule generation script
 ```
 
-## 2️⃣ Results
+## 📊 Results
 
 ✅ Pre-generated molecules are provided for download (including `QED`, `SA`, `Docking score`, `LogP`, `Weight`) along with comparison methods (some from [AIxFuse](https://github.com/biomed-AI/AIxFuse?tab=readme-ov-file) open-source data):
 
@@ -34,9 +34,9 @@ PolyPharm is a deep learning-based framework for multi-target drug design, capab
 
 💡 To train from scratch, follow the steps below.
 
-## 3️⃣ Quick Start
+## 🚀 Quick Start
 
-### 3.1 📥 Clone Repository & Download Dataset
+### 📥 Clone Repository & Download Dataset
 
 ```bash
 git clone https://github.com/Yozu-Roo/POLYGEN.git
@@ -50,7 +50,7 @@ After download, extract and place the `data/` folder at the root directory.
 
 ------
 
-### 3.2 ⚙️ Install Conda Environment
+### 📦 Install Conda Environment
 
 Recommended **Python 3.8**:
 
@@ -61,7 +61,7 @@ conda activate polypharm
 
 ------
 
-### 3.3 🏋️‍♂️ Pre-training
+### 🧠 Pre-training
 
 ```bash
 python train_chembl_baseline.py
@@ -72,7 +72,7 @@ python train_chembl_baseline.py
 
 ------
 
-### 3.4 🔧 Fine-tuning
+### 🔧 Fine-tuning
 
 **Splitting the fine-tuning dataset**:
 
@@ -149,7 +149,7 @@ python RL_generate.py \
 - Multi-GPU users may modify `CUDA_VISIBLE_DEVICES`
 
 > [!NOTE]
-> **Hyperparameter selection**
+> ⚙️ **Hyperparameter selection**
 >
 > Hyperparameters were selected separately for the two benchmark tasks. We evaluated the number of fine-tuning epochs (`n_epochs`) over the range of **5–25 with a step size of 5**, while fixing `threshold` at **0.60**. We then evaluated the elite-molecule screening threshold (`threshold`) over the range of **0.50–0.70 with a step size of 0.05**, while fixing `n_epochs` at **20**. The remaining fine-tuning settings were kept unchanged.
 >
@@ -200,7 +200,7 @@ python RL_generate.py \
 
 ------
 
-### 3.5 🧪 Molecule Generation
+### 🧬 Molecule Generation
 
 ```bash
 python generate.py \
@@ -225,8 +225,7 @@ python generate.py \
 
 ------
 
-## 4️⃣  Tips🌟
-
+## 🌟 Tips
 - Ensure all paths are correct to avoid file-not-found errors
 - GPU significantly speeds up training and generation
 - Docking tool: [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina/releases) or using [Vina-GPU](https://github.com/DeltaGroupNJUPT/Vina-GPU-2.1) speeds up
