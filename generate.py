@@ -102,7 +102,7 @@ def generate(init_mols, model, tokenizer, args):
 
     # save final sample
     count = 0
-    with open(os.path.join(args.output_dir, args.save_file"), 'w') as handle:
+    with open(os.path.join(args.output_dir, args.save_file), 'w') as handle:
         for d in final_results:
             if count <= 10000:
                 handle.write(f'{d}\n')
