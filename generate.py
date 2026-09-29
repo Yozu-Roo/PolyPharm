@@ -115,7 +115,7 @@ def generate(init_mols, model, tokenizer, args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target_name', type=list, help='the name of multi targets', default=['ROR_gamma', 'DHODH'])
+    parser.add_argument('--target_name', nargs=2, help='the names of two targets', default=['ROR_gamma', 'DHODH'])
     parser.add_argument('--init_smi_path', type=str, required=True, help='Path to the input SMILES file used for molecule generation.')
     parser.add_argument('--output_dir', type=Path, help='the output directory', default='./generate_output_RD')
     parser.add_argument('--save_file', type=Path, help='the save file', default='RD_gen.csv')
