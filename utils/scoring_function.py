@@ -447,7 +447,7 @@ class ArithmeticMeanScoringFunction(BatchScoringFunction):
 
         scores = scores.sum(axis=0) / np.sum(self.weights)
 
-        return list(scores), list(raw_scores[-1]), list(raw_scores[-2])
+        return [list(scores), list(raw_scores[-1]), list(raw_scores[-2])]
 
 
 class GeometricMeanScoringFunction(MoleculewiseScoringFunction):
