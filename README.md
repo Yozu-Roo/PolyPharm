@@ -42,7 +42,7 @@ PolyPharm is a deep learning-based framework for multi-target drug design, capab
 git clone https://github.com/Yozu-Roo/POLYGEN.git
 ```
 
-- Dataset (~1.69GB) download via [Google Drive](https://drive.google.com/file/d/1meevHkArxd2SAeNh4tqCSEE8sJPH64ld/view?usp=drive_link)
+- Dataset & other tools (~1.69GB) download via [Google Drive](https://drive.google.com/file/d/1meevHkArxd2SAeNh4tqCSEE8sJPH64ld/view?usp=drive_link)
 - Or download via [Baidu Drive](https://pan.baidu.com/s/1aNK7QzjTPmnSIv1LBGKzlA?pwd=9yr9)
 - Or contact via email: niuziru@stu.xmu.edu.cn
 
