@@ -202,7 +202,7 @@ def finetune(inint_population, model, tokenizer, objective, args):
         # store the molecules
         int_candidate_set = int_results[:args.keep_top]
         candidate_set += [s for s.smiles in int_candidate_set]
-        elite_set += [for s in int_candidate_set if s.score >= threshold]
+        elite_set += [s for s in int_candidate_set if s.score >= threshold]
                
         np.random.shuffle(elite_set)
         print(f"elite size: {len(elite_set)}")
