@@ -78,9 +78,9 @@ python train_chembl_baseline.py
 
 ```bash
 python utils/split_finetune_dataset.py \
-    --ligands_set1 ./data/GSK3B+JNK3/GSK3B.csv \  
-    --ligands_set2 ./data/GSK3B+JNK3/JNK3.csv \  
-    --output_dir ./data/GSK3B+JNK3/ \             
+    --ligands_set1 ./data/GSK3B+JNK3/GSK3B.csv \
+    --ligands_set2 ./data/GSK3B+JNK3/JNK3.csv \
+    --output_dir ./data/GSK3B+JNK3/ \  
     --train_ratio 0.7 \
     --val_ratio 0.1 \
     --test_ratio 0.2
@@ -88,9 +88,9 @@ python utils/split_finetune_dataset.py \
 
 ```bash
 python utils/split_finetune_dataset.py \
-    --ligands_set1 ./data/ROR_gamma+DHODH/ROR_gamma.csv \  
-    --ligands_set2 ./data/ROR_gamma+DHODH/DHODH.csv \  
-    --output_dir ./data/ROR_gamma+DHODH/ \             
+    --ligands_set1 ./data/ROR_gamma+DHODH/ROR_gamma.csv \
+    --ligands_set2 ./data/ROR_gamma+DHODH/DHODH.csv \
+    --output_dir ./data/ROR_gamma+DHODH/ \  
     --train_ratio 0.7 \
     --val_ratio 0.1 \
     --test_ratio 0.2
