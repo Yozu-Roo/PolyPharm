@@ -156,20 +156,13 @@ def finetune(inint_population, model, tokenizer, objective, args):
     offset = 0.05
     threshold = args.threshold
 
-    optimizer = AdamW(model.parameters(), lr=CFG.init_lr * 0.5, weight_decay=CFG.weight_decay, amsgrad=False)
+    optimizer = AdamW(model.parameters(), lr=CFG.init_lr, weight_decay=CFG.weight_decay, amsgrad=False)
     scheduler = CosineAnnealingLR(optimizer, T_max=CFG.T_max, eta_min=CFG.min_lr, last_epoch=-1)
     model.to(args.device)
 
     for epoch in range(0, 1 + args.n_epochs):
         if epoch == 0:
             canonicalized_samples = set(inint_population)
-            # save init population for generate.py
-            file = '+'.join(map(str, args.target_name))
-            with open(os.path.join('./data', f'{file}', 'init_molecules.csv'), mode='w', newline='') as handle:
-                writer = csv.writer(handle)
-                writer.writerow(['smiles'])
-                for d in canonicalized_samples:
-                    writer.writerow([d])
         else:
             # sample
             model.eval()
@@ -212,7 +205,7 @@ def finetune(inint_population, model, tokenizer, objective, args):
             train_dataset = SemiSmilesDataset(elite_set, tokenizer, use_random_input_smiles=True,
                                               use_random_target_smiles=True)
             train_loader = DataLoader(train_dataset,
-                                      batch_size=CFG.batch_size,
+                                      batch_size=args.batch_size,
                                       shuffle=True,
                                       num_workers=CFG.num_workers,
                                       pin_memory=True,
