@@ -148,52 +148,55 @@ python RL_generate.py \
 - Generated results and model weights are saved in `finetune_output_*/`
 - Multi-GPU users may modify `CUDA_VISIBLE_DEVICES`
 
-**Hyperparameter selection**:
-
-Hyperparameters were selected separately for the two benchmark tasks. We evaluated the number of fine-tuning epochs (`n_epochs`) over the range of **5~25 with a step size of 5**, while fixing `threshold` at **0.60**. We then evaluated the elite-molecule screening threshold (`threshold`) over the range of **0.50~0.70 with a step size of 0.05**, while fixing `n_epochs` at the selected value. The remaining fine-tuning settings were kept unchanged.
-
-The entire hyperparameter search can be performed automatically using:
-
-```bash
-python hyperparameter_search.py \
-    --target_name ROR_gamma DHODH \
-    --data_path ./data/ROR_gamma+DHODH/train.csv \
-    --val_data_path ./data/ROR_gamma+DHODH/val.csv \
-    --model_path ./pretrain_output/fold0_epoch32.pth \
-    --tokenizer_path ./pretrain_output/tokenizer.pkl \
-    --output_prefix ./hyperparam_RD \
-    --n_mol 30000 \
-    --generate_n_mol 10000 \
-    --device cuda \
-    --batch_size 512 \
-    --seed 42 \
-    --optimize_n_epochs 5 \
-    --save_frequency 10 \
-    --keep_top 10000
-```
-
-For the GSK3β|JNK3 benchmark task:
-
-```bash
-python hyperparameter_search.py \
-    --target_name GSK3B JNK3 \
-    --data_path ./data/GSK3B+JNK3/train.csv \
-    --val_data_path ./data/GSK3B+JNK3/val.csv \
-    --model_path ./pretrain_output/rs_mapping/fold0_epoch32.pth \
-    --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
-    --output_prefix ./hyperparam_GJ \
-    --n_mol 10000 \
-    --generate_n_mol 10000 \
-    --device cuda \
-    --batch_size 512 \
-    --seed 42 \
-    --optimize_n_epochs 5 \
-    --save_frequency 10 \
-    --keep_top 10000
-```
-After the script finishes running, CSV files containing the generated molecules corresponding to different parameters will be produced in the following directories: `hyperparam_**_threshold_**_generation/` `hyperparam_**_epoch_**_generation/`.
-
-Next, perform batch docking on the generated molecules using [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina/releases) and calculate their `QED` and `SA` properties. Finally, calculate the `USR docking` scores and `SR` values ​​based on the evaluation metrics section of our manuscript; compare these results to select the parameter combination yielding the highest `SR` and `USR docking` scores as the model's hyperparameter settings.
+> [!NOTE]
+> **Hyperparameter selection**
+>
+> Hyperparameters were selected separately for the two benchmark tasks. We evaluated the number of fine-tuning epochs (`n_epochs`) over the range of **5–25 with a step size of 5**, while fixing `threshold` at **0.60**. We then evaluated the elite-molecule screening threshold (`threshold`) over the range of **0.50–0.70 with a step size of 0.05**, while fixing `n_epochs` at **20**. The remaining fine-tuning settings were kept unchanged.
+>
+> The entire hyperparameter search can be performed automatically using:
+>
+> ```bash
+> python hyperparameter_search.py \
+>     --target_name ROR_gamma DHODH \
+>     --data_path ./data/ROR_gamma+DHODH/train.csv \
+>     --val_data_path ./data/ROR_gamma+DHODH/val.csv \
+>     --model_path ./pretrain_output/fold0_epoch32.pth \
+>     --tokenizer_path ./pretrain_output/tokenizer.pkl \
+>     --output_prefix ./hyperparam_RD \
+>     --n_mol 30000 \
+>     --generate_n_mol 10000 \
+>     --device cuda \
+>     --batch_size 512 \
+>     --seed 42 \
+>     --optimize_n_epochs 5 \
+>     --save_frequency 10 \
+>     --keep_top 10000
+> ```
+>
+> For the GSK3β|JNK3 benchmark task:
+>
+> ```bash
+> python hyperparameter_search.py \
+>     --target_name GSK3B JNK3 \
+>     --data_path ./data/GSK3B+JNK3/train.csv \
+>     --val_data_path ./data/GSK3B+JNK3/val.csv \
+>     --model_path ./pretrain_output/rs_mapping/fold0_epoch32.pth \
+>     --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
+>     --output_prefix ./hyperparam_GJ \
+>     --n_mol 10000 \
+>     --generate_n_mol 10000 \
+>     --device cuda \
+>     --batch_size 512 \
+>     --seed 42 \
+>     --optimize_n_epochs 5 \
+>     --save_frequency 10 \
+>     --keep_top 10000
+> ```
+>
+> After the script finishes, CSV files containing the generated molecules for different parameter settings will be produced in the following directories:
+> `hyperparam_**_threshold_**_generation/` and `hyperparam_**_epoch_**_generation/`.
+>
+> Next, perform batch docking on the generated molecules using [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina/releases) and calculate their `QED` and `SA` properties. Finally, calculate the `USR docking` scores and `SR` values according to the evaluation metrics described in the manuscript. Compare these results and select the parameter combination with the highest `SR` and `USR docking` scores as the final hyperparameter setting.
 
 ------
 
@@ -215,6 +218,7 @@ python generate.py \
 ```
 
 - `--target_name` is the benchmark task and can be replaced with `GSK3B JNK3`
+- `--init_smi_path` is the file path for the test set.
 - `--model_path` is your fine-tuned model path
 - `--n_mol` is the number of generated molecules 
 - Generated molecules are saved in `generate_output_*/`
