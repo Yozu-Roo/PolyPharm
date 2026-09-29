@@ -105,7 +105,7 @@ python RL_generate.py \
     --target_name GSK3B JNK3 \
     --output_dir ./finetune_output_GJ \
     --data_path ./data/GSK3B+JNK3/train.csv \
-    --model_path ./pretrain_output/rs_mapping/fold0_epoch32.pth \
+    --model_path ./pretrain_output/fold0_epoch32.pth \
     --tokenizer_path ./pretrain_output/rs_mapping/tokenizer.pkl \
     --n_mol 10000 \
     --device cuda \
