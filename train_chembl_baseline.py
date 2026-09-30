@@ -31,7 +31,7 @@ from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
 from model.pgmg import PGMG
-from utils.smiles2ppgraph import MAX_NUM_PP_GRAPHS
+from utils.smiles2ppgraph import MAX_NUM_PP_GRAPHS, get_batched_pharmacophore_types
 from utils.utils import AverageMeter, timeSince, seed_torch
 from utils.dataset import Tokenizer, SemiSmilesDataset
 import os
@@ -154,8 +154,7 @@ def train_fn(train_loader, model, optimizer, epoch, scheduler, beta=1, scaler=No
             prediction_scores, mapping_scores, lm_loss, kl_loss, cl_loss = model(inputs, input_mask, pp_graphs, targets)
 
         x = torch.zeros(batch_size, MAX_NUM_PP_GRAPHS, len(PP_TYPE_WEIGHT)).to('cuda:0')
-        xx = pad_sequence(torch.split(pp_graphs.ndata['type'], tuple(pp_graphs.batch_num_nodes().cpu())),
-                          batch_first=True)
+        xx = get_batched_pharmacophore_types(pp_graphs)
         x[:, :xx.shape[1], :] = xx
 
         a = torch.Tensor(PP_TYPE_WEIGHT).to('cuda:0')
@@ -169,15 +168,14 @@ def train_fn(train_loader, model, optimizer, epoch, scheduler, beta=1, scaler=No
         
         # mapping_loss = 0
 
-        #         loss = kl_loss*0.2+reshape_layer_l1+lm_loss
-        loss = lm_loss + kl_loss * beta + mapping_loss + cl_loss
+        loss = lm_loss + kl_loss * beta + cl_loss
         accumulated_loss += loss
 
         # record loss
         losses.update(loss.item(), batch_size)
         lm_losses.update(lm_loss.item(), batch_size)
         kl_losses.update(kl_loss.item(), batch_size)
-        map_losses.update(mapping_loss.item(), batch_size)
+        # map_losses.update(mapping_loss.item(), batch_size)
         cl_losses.update(cl_loss.item(), batch_size)
 
         if (step + 1) % CFG.gradient_accumulation_steps == 0:
@@ -210,7 +208,6 @@ def train_fn(train_loader, model, optimizer, epoch, scheduler, beta=1, scaler=No
                   f'Elapsed {timeSince(start, float(step + 1) / len(train_loader)):s} '
                   f'LM Loss: {lm_losses.val:.4f}({lm_losses.avg:.4f}) '
                   f'KL Loss: {kl_losses.val:.4f}({kl_losses.avg:.4f}) '
-                  f'Map Loss: {map_losses.val:.4f}({map_losses.avg:.4f}) '
                   f'CL Loss: {cl_losses.val:.4f}({cl_losses.avg:.4f})'
                   f'Grad: {grad_norm:.4f} '
                   )
@@ -251,8 +248,7 @@ def valid_fn(valid_loader, model, epoch, beta=1, scaler=None):
             prediction_scores, mapping_scores, lm_loss, kl_loss, cl_loss = model(inputs, input_mask, pp_graphs, targets)
 
         x = torch.zeros(batch_size, MAX_NUM_PP_GRAPHS, len(PP_TYPE_WEIGHT)).to('cuda:0')
-        xx = pad_sequence(torch.split(pp_graphs.ndata['type'], tuple(pp_graphs.batch_num_nodes().cpu())),
-                          batch_first=True)
+        xx = get_batched_pharmacophore_types(pp_graphs)
         x[:, :xx.shape[1], :] = xx
 
         a = torch.Tensor(PP_TYPE_WEIGHT).to('cuda:0')
@@ -410,9 +406,9 @@ if __name__ == '__main__':
     use_random_target_smiles = MODEL_SETTINGS[args.model_type].setdefault('out', 'rs') == 'rs'
 
     train_dataset = SemiSmilesDataset(train_smiles, tokenizer,
-                                      use_random_input_smiles, use_random_target_smiles)
+                                      use_random_input_smiles, use_random_target_smiles, include_atoms=True)
     valid_dataset = SemiSmilesDataset(valid_smiles, tokenizer,
-                                      use_random_input_smiles, use_random_target_smiles)
+                                      use_random_input_smiles, use_random_target_smiles, include_atoms=True)
     gen_dataset = SemiSmilesDataset(gen_smiles, tokenizer,
                                     use_random_input_smiles, use_random_target_smiles)
 
