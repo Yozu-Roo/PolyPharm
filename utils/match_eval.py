@@ -59,17 +59,27 @@ def extract_dgl_info(g):
     node_type = g.ndata.get('type', g.ndata['h'][:, :-1])  # a temporary fix
     dist = g.edata.get('dist', g.edata['h'])
 
+    if 'is_pharmacophore' in g.ndata:
+        pharmacophore_ids = g.ndata['is_pharmacophore'].nonzero().flatten().tolist()
+    else:
+        pharmacophore_ids = list(range(len(node_type)))
+    node_id_map = {node_id: index for index, node_id in enumerate(pharmacophore_ids)}
+    node_type = node_type[pharmacophore_ids]
+
     ref_dist_list = []
     value = []
-    for i in range(len(g.edges()[0])):
-        ref_dist_name = '{}{}'.format(int(g.edges()[0][i]), int(g.edges()[1][i]))  ##取参考药效团的距离
+    edge_src, edge_dst = g.edges()
+    for i, (src, dst) in enumerate(zip(edge_src.tolist(), edge_dst.tolist())):
+        if src not in node_id_map or dst not in node_id_map:
+            continue
+        ref_dist_name = '{}{}'.format(node_id_map[src], node_id_map[dst])  ##取参考药效团的距离
         ref_dist_list.append(ref_dist_name)
-        value.append(float(dist[i]))
+        value.append(float(dist[i].detach().cpu()))
     dist_dict = dict(zip(ref_dist_list, value))
     type_list = []
     for n in range(len(node_type)):
         list_0 = [0]
-        nonzoro_list = node_type[n].numpy().tolist()
+        nonzoro_list = node_type[n].detach().cpu().numpy().tolist()
         list_0.extend(nonzoro_list)
         aa = np.nonzero(list_0)
         type_list.append(tuple(aa[0]))
