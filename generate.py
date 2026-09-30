@@ -68,8 +68,7 @@ def get_ppgraph(smiles_list):
     for smile in smiles_list:
         try:
             pp_graph, mapping = smiles2ppgraph(smile)
-            pp_graph.ndata['h'] = \
-                torch.cat((pp_graph.ndata['type'], pp_graph.ndata['size'].reshape(-1, 1)), dim=1).float()
+            pp_graph.ndata['h'] = pp_graph.ndata['h'].float()
             pp_graph.edata['h'] = pp_graph.edata['dist'].reshape(-1, 1).float()
             pp_graphs.append(pp_graph)
         except:
@@ -89,26 +88,21 @@ def generate(init_mols, model, tokenizer, args):
     while len(final_results) < args.n_mol:
         # sample
         g = get_ppgraph(results)
+        if not g:
+            raise ValueError('No valid pharmacophore graphs could be built from the input SMILES.')
         res = []
-        for i in tqdm(range(len(g) // args.batch_size + 1)):
-            start_idx = i * args.batch_size
-            end_idx = (i + 1) * args.batch_size
-            g_batch = g[start_idx:end_idx]
+        for start_idx in tqdm(range(0, len(g), args.batch_size)):
+            g_batch = g[start_idx:start_idx + args.batch_size]
             g_batch = dgl.batch(g_batch).to(args.device)
-            res.extend(tokenizer.get_text(model.generate(g_batch, random_sample=True)))
-        final_results.extend(res)
+            res.extend(tokenizer.get_text(model.generate(g_batch, random_sample=False)))
+        final_results.extend(res[:args.n_mol - len(final_results)])
         print(f'generated mols:{len(final_results)}')
 
 
     # save final sample
-    count = 0
     with open(os.path.join(args.output_dir, args.save_file), 'w') as handle:
-        for d in final_results:
-            if count <= args.n_mol:
-                handle.write(f'{d}\n')
-                count += 1
-            else:
-                break
+        for d in final_results[:args.n_mol]:
+            handle.write(f'{d}\n')
 
 
 
