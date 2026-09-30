@@ -136,7 +136,8 @@ def get_random_smiles(smiles):
 class SemiSmilesDataset(Dataset):
 
     def __init__(self, smiles_list, tokenizer: Tokenizer,
-                 use_random_input_smiles=False, use_random_target_smiles=False, rsmiles=None, corrupt=True):
+                 use_random_input_smiles=False, use_random_target_smiles=False, rsmiles=None, corrupt=True,
+                 include_atoms=False):
         """
         :param smiles_list: list of valid smiles
         :param tokenizer:
@@ -144,6 +145,7 @@ class SemiSmilesDataset(Dataset):
         :param use_random_target_smiles:
         :param rsmiles:
         :param corrupt: boolean, whether to use infilling scheme to corrupt input smiles
+        :param include_atoms: include molecular atom nodes for GCN training propagation
         """
         super().__init__()
         
@@ -158,6 +160,7 @@ class SemiSmilesDataset(Dataset):
         self.use_random_target_smiles = use_random_target_smiles
         self.rsmiles = rsmiles
         self.corrupt = corrupt
+        self.include_atoms = include_atoms
         
         if rsmiles is None and (use_random_input_smiles or use_random_target_smiles):
             print('WARNING: The result of rdkit.Chem.MolToSmiles(..., doRandom=True) is NOT reproducible '
@@ -196,13 +199,13 @@ class SemiSmilesDataset(Dataset):
         
         target_seq = torch.LongTensor(target_seq)
 
-        pp_graph, mapping = smiles2ppgraph(target_smiles)
-        pp_graph.ndata['h'] = \
-            torch.cat((pp_graph.ndata['type'], pp_graph.ndata['size'].reshape(-1, 1)), dim=1).float()
+        pp_graph, mapping = smiles2ppgraph(target_smiles, include_atoms=self.include_atoms)
+        pp_graph.ndata['h'] = pp_graph.ndata['h'].float()
         pp_graph.edata['h'] = pp_graph.edata['dist'].reshape(-1, 1).float()
         
         mapping = torch.FloatTensor(mapping)
-        mapping[:,pp_graph.num_nodes():] = -100  # torch cross entropy loss ignores -100 by default
+        pharmacophore_count = int(pp_graph.ndata['is_pharmacophore'].sum())
+        mapping[:, pharmacophore_count:] = -100
         
         mapping_ = torch.ones(target_seq.shape[0], MAX_NUM_PP_GRAPHS)*-100
         mapping_[atom_idx,:] = mapping
