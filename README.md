@@ -116,7 +116,7 @@ python RL_generate.py \
     --optimize_n_epochs 5 \
     --save_frequency 10 \
     --save_payloads \
-    --keep_top 5000
+    --keep_top_ratio 0.5
 ```
 
 **Fine-tune on RORγt|DHODH benchmark task**:
@@ -137,7 +137,7 @@ python RL_generate.py \
     --optimize_n_epochs 5 \
     --save_frequency 10 \
     --save_payloads \
-    --keep_top 5000
+    --keep_top_ratio 0.5
 ```
 
 - `--tokenizer_path ` is your pre-trained model path
@@ -170,7 +170,7 @@ python RL_generate.py \
 >     --seed 42 \
 >     --optimize_n_epochs 5 \
 >     --save_frequency 10 \
->     --keep_top 5000
+>     --keep_top_ratio 0.5
 > ```
 >
 > For the GSK3β|JNK3 benchmark task:
@@ -190,7 +190,7 @@ python RL_generate.py \
 >     --seed 42 \
 >     --optimize_n_epochs 5 \
 >     --save_frequency 10 \
->     --keep_top 5000
+>     --keep_top_ratio 0.5
 > ```
 >
 > After the script finishes, CSV files containing the generated molecules for different parameter settings will be produced in the following directories:
@@ -206,7 +206,7 @@ python RL_generate.py \
 python generate.py \
     --target_name ROR_gamma DHODH \  
     --output_dir ./generate_output_RD \
-    --save_file RD_gen.csv
+    --save_file RD_gen.csv \
     --model_path ./finetune_output_RD/epoch_15_finetuned_model.pth \  
     --tokenizer_path ./pretrain_output/tokenizer.pkl \
     --init_smi_path ./data/ROR_gamma+DHODH/test.csv \
