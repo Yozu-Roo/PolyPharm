@@ -7,8 +7,27 @@ import torch
 from rdkit import Chem
 from rdkit import RDConfig
 from rdkit.Chem import ChemicalFeatures
+from torch.nn.utils.rnn import pad_sequence
 
 MAX_NUM_PP_GRAPHS = 8
+EDGE_TYPE_BOND = 0
+EDGE_TYPE_PHARMACOPHORE = 1
+EDGE_TYPE_DEPENDENCY = 2
+
+
+def get_batched_pharmacophore_types(graph):
+    node_counts = graph.batch_num_nodes().tolist()
+    type_chunks = torch.split(graph.ndata['type'], node_counts)
+    if 'is_pharmacophore' not in graph.ndata:
+        return pad_sequence(type_chunks, batch_first=True)
+
+    mask_chunks = torch.split(graph.ndata['is_pharmacophore'].bool(), node_counts)
+    phar_types = [types[mask] for types, mask in zip(type_chunks, mask_chunks)]
+    return pad_sequence(phar_types, batch_first=True)
+
+
+def _bond_weight(bond_type):
+    return {'SINGLE': 1.0, 'DOUBLE': 0.87, 'AROMATIC': 0.91}.get(bond_type, 0.78)
 
 
 def sample_probability(elment_array, plist, N):
@@ -71,14 +90,7 @@ def cal_dist(mol, start_atom, end_tom):
                     bond_collection.append([bond_, bond_type[1], bond_type[2]])
     dist = 0
     for elment in bond_collection:
-        if elment[0] == 'SINGLE':
-            dist = dist + 1
-        elif elment[0] == 'DOUBLE':
-            dist = dist + 0.87
-        elif elment[0] == 'AROMATIC':
-            dist = dist + 0.91
-        else:
-            dist = dist + 0.78
+        dist += _bond_weight(elment[0])
     return dist
 
 
@@ -103,12 +115,13 @@ def smiles_code_(smiles, g, e_list):
     return smiles_code
 
 
-def smiles2ppgraph(smiles:str):
+def smiles2ppgraph(smiles: str, include_atoms=False):
     '''
     :param smiles: a molecule
     :return: (pp_graph, mapping)
-        pp_graph: DGLGraph, the corresponding **random** pharmacophore graph
-        mapping: np.Array ((atom_num, MAX_NUM_PP_GRAPHS)) the mapping between atoms and pharmacophore features
+        pp_graph: DGLGraph containing pharmacophore nodes. If include_atoms is True,
+            molecular atoms are appended and connected to pharmacophores for GCN propagation.
+        mapping: np.Array ((atom_num, MAX_NUM_PP_GRAPHS)) mapping atoms to pharmacophore node columns
     '''
 
     mol = Chem.MolFromSmiles(smiles)
@@ -120,6 +133,14 @@ def smiles2ppgraph(smiles:str):
     fdefName = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')
     factory = ChemicalFeatures.BuildFeatureFactory(fdefName)
     feats = factory.GetFeaturesForMol(mol)
+    feature_mapping = {'Aromatic': 1, 'Hydrophobe': 2, 'PosIonizable': 3,
+                       'Acceptor': 4, 'Donor': 5, 'LumpedHydrophobe': 6}
+    atom_features = torch.zeros((mol.GetNumAtoms(), 7), dtype=torch.float32) if include_atoms else None
+    if include_atoms:
+        element_features = {6: 0, 7: 1, 8: 2, 16: 3, 15: 4, 9: 5, 17: 5, 35: 5, 53: 5}
+        for atom in mol.GetAtoms():
+            feature_index = element_features.get(atom.GetAtomicNum(), 6)
+            atom_features[atom.GetIdx(), feature_index] = -1
 
     # only keep 2 phar
     # feats_t = list(feats)
@@ -131,9 +152,7 @@ def smiles2ppgraph(smiles:str):
         atom_index = f.GetAtomIds()
         atom_index = tuple(sorted(atom_index))
         atom_type = f.GetType()
-        mapping = {'Aromatic': 1, 'Hydrophobe': 2, 'PosIonizable': 3,
-                   'Acceptor': 4, 'Donor': 5, 'LumpedHydrophobe': 6}
-        phar_index = mapping.setdefault(phar, 7)
+        phar_index = feature_mapping.setdefault(phar, 7)
         pharmocophore_ = [phar_index, atom_index]  # some pharmacophore feature
         pharmocophore_all.append(pharmocophore_)  # all pharmacophore features within a molecule
         atom_index_list.append(atom_index)  # atom indices of one pharmacophore feature
@@ -229,13 +248,56 @@ def smiles2ppgraph(smiles:str):
                     weights.append(position_matrix[v, u])
                 else:
                     weights.append(position_matrix[u, v])
-    u_list_tensor = torch.tensor(u_list)
-    v_list_tensor = torch.tensor(v_list)
-    g = dgl.graph((u_list_tensor, v_list_tensor))
-    g.edata['dist'] = torch.HalfTensor(weights)
+    pharmacophore_count = len(type_list)
+    atom_count = mol.GetNumAtoms()
+    src = list(u_list)
+    dst = list(v_list)
+    edge_weights = list(weights)
+    edge_types = [EDGE_TYPE_PHARMACOPHORE] * len(weights)
+
+    if include_atoms:
+        for bond in mol.GetBonds():
+            atom_start = pharmacophore_count + bond.GetBeginAtomIdx()
+            atom_end = pharmacophore_count + bond.GetEndAtomIdx()
+            bond_weight = _bond_weight(bond.GetBondType().name)
+            src.extend((atom_start, atom_end))
+            dst.extend((atom_end, atom_start))
+            edge_weights.extend((bond_weight, bond_weight))
+            edge_types.extend((EDGE_TYPE_BOND, EDGE_TYPE_BOND))
+
+        for pharmacophore_id, atom_ids in enumerate(e_list):
+            for atom_id in atom_ids:
+                src.append(pharmacophore_count + atom_id)
+                dst.append(pharmacophore_id)
+                edge_weights.append(0.0)
+                edge_types.append(EDGE_TYPE_DEPENDENCY)
+
+    graph_node_count = pharmacophore_count + atom_count if include_atoms else pharmacophore_count
+    g = dgl.graph((torch.tensor(src, dtype=torch.int64), torch.tensor(dst, dtype=torch.int64)),
+                  num_nodes=graph_node_count)
+    g.edata['dist'] = torch.HalfTensor(edge_weights)
+    g.edata['edge_type'] = torch.tensor(edge_types, dtype=torch.long)
+
     type_list_tensor = torch.stack(type_list)
+    phar_size_tensor = torch.HalfTensor(size_)
+    phar_features = torch.cat((type_list_tensor.float(), phar_size_tensor.float().unsqueeze(1)), dim=1)
     g.ndata['type'] = type_list_tensor
-    g.ndata['size'] = torch.HalfTensor(size_)
+    g.ndata['size'] = phar_size_tensor
+    g.ndata['is_pharmacophore'] = torch.ones(pharmacophore_count, dtype=torch.bool)
+    g.ndata['h'] = phar_features
+
+    if include_atoms:
+        assert atom_features is not None
+        atom_size_tensor = -torch.ones(atom_count, dtype=torch.float16)
+        atom_type_tensor = torch.zeros((atom_count, 7), dtype=type_list_tensor.dtype)
+        g.ndata['type'] = torch.cat((type_list_tensor, atom_type_tensor), dim=0)
+        g.ndata['size'] = torch.cat((phar_size_tensor, atom_size_tensor), dim=0)
+        g.ndata['is_pharmacophore'] = torch.cat((
+            torch.ones(pharmacophore_count, dtype=torch.bool),
+            torch.zeros(atom_count, dtype=torch.bool)
+        ))
+        atom_features = torch.cat((atom_features, atom_size_tensor.float().unsqueeze(1)), dim=1)
+        g.ndata['h'] = torch.cat((phar_features, atom_features), dim=0)
     smiles_code_res = smiles_code_(smiles, g, e_list)
 
     return g, smiles_code_res
