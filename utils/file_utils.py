@@ -163,22 +163,30 @@ def export_ep_text(g: dgl.DGLGraph, file_path: Optional[Path] = None):
 
     edgep_text = ''
 
-    n = g.num_nodes()
+    if 'is_pharmacophore' in g.ndata:
+        pharmacophore_ids = g.ndata['is_pharmacophore'].nonzero().flatten().tolist()
+    else:
+        pharmacophore_ids = list(range(g.num_nodes()))
+    node_id_map = {node_id: index for index, node_id in enumerate(pharmacophore_ids)}
+    n = len(pharmacophore_ids)
     edgep_text += f'{n}\n'
 
     type_vec = g.ndata['h'][:, :-1] if 'h' in g.ndata.keys() else g.ndata['type']
 
-    for i in range(n):
-        types = type_vec[i].nonzero().numpy().flatten()
+    for node_id in pharmacophore_ids:
+        types = type_vec[node_id].nonzero().numpy().flatten()
         t = ','.join([idx2phar[i] for i in types])
-        edgep_text += f'{i + 1} {t}\n'
+        edgep_text += f'{node_id_map[node_id] + 1} {t}\n'
 
     dist_vec = g.edata['h'] if 'h' in g.edata.keys() else g.edata['dist']
 
     dist_mapping = {}
     for i, (u, v) in enumerate(torch.stack(g.edges()).T.numpy()):
+        if u not in node_id_map or v not in node_id_map:
+            continue
+        u, v = node_id_map[u], node_id_map[v]
         u, v = (u, v) if u < v else (v, u)
-        dist_mapping[(u, v)] = dist_vec.numpy().flatten()[i]
+        dist_mapping[(u, v)] = dist_vec.detach().cpu().numpy().flatten()[i]
 
     for (u, v), dist in dist_mapping.items():
         edgep_text += f'{u + 1} {v + 1} {dist}\n'
