@@ -12,7 +12,7 @@ from fairseq.modules import MultiheadAttention
 from model.ggcn_layers import GGCNEncoderBlock
 from model.transformer_blocks import PositionalEncoding, TransformerEncoder, TransformerDecoder
 
-from utils.smiles2ppgraph import MAX_NUM_PP_GRAPHS
+from utils.smiles2ppgraph import EDGE_TYPE_PHARMACOPHORE, MAX_NUM_PP_GRAPHS
 
 
 class PGMG(nn.Module):
@@ -138,7 +138,8 @@ class PGMG(nn.Module):
         encoder_full_mask = input_mask  # batch seq_plus
 
         ppxt = self.encoder(ppxt, encoder_full_mask)  # (s b f), input masks need not transpose
-        self.global_s = F.normalize(torch.mean(self.proj_s(ppxt.transpose(0, 1)), dim=1), dim=1)
+        s_cls = self.proj_s(ppxt[0])
+        self.global_s = F.normalize(s_cls, dim=1)
 
         # xxt = ppxt[MAX_NUM_PP_GRAPHS:, :, :]
         xxt = torch.cat((vvs, ppxt), dim=0)
@@ -173,13 +174,28 @@ class PGMG(nn.Module):
         v = self.pp_v_init(pp_graphs.ndata['h'])
         _e = pp_graphs.edata['h']
         if self.remove_pp_dis:
-            _e = torch.zeros_like(_e)
+            if 'edge_type' in pp_graphs.edata:
+                phar_edges = pp_graphs.edata['edge_type'] == EDGE_TYPE_PHARMACOPHORE
+                _e = _e.masked_fill(phar_edges.unsqueeze(-1), 0)
+            else:
+                _e = torch.zeros_like(_e)
         e = self.pp_e_init(_e)
         v, e = self.pp_encoder.forward_feature(pp_graphs, v, e)
-        vv = pad_sequence(torch.split(v, pp_graphs.batch_num_nodes().tolist()), batch_first=False, padding_value=-999)
+        node_counts = pp_graphs.batch_num_nodes().tolist()
+        node_features = torch.split(v, node_counts)
+        if 'is_pharmacophore' in pp_graphs.ndata:
+            node_masks = torch.split(pp_graphs.ndata['is_pharmacophore'].bool(), node_counts)
+            phar_features = [features[mask] for features, mask in zip(node_features, node_masks)]
+        else:
+            phar_features = list(node_features)
+        phar_counts = torch.as_tensor([features.shape[0] for features in phar_features], device=v.device)
+        vv = pad_sequence(phar_features, batch_first=False, padding_value=-999)
 
-        # 获取ppgraph的全局特征
-        self.global_g = F.normalize(torch.mean(self.proj_g(vv.transpose(0, 1)), dim=1), dim=1)
+        # Pool only real graph nodes;
+        node_mask = torch.arange(vv.shape[0], device=v.device).unsqueeze(0) < phar_counts.unsqueeze(1)
+        g_features = self.proj_g(vv.transpose(0, 1))
+        g_mean = (g_features * node_mask.unsqueeze(-1)).sum(dim=1) / phar_counts.clamp_min(1).unsqueeze(1)
+        self.global_g = F.normalize(g_mean, dim=1)
 
         vv2 = vv.new_ones((MAX_NUM_PP_GRAPHS, pp_graphs.batch_size, vv.shape[2])) * -999
         vv2[:vv.shape[0], :, :] = vv
@@ -194,7 +210,7 @@ class PGMG(nn.Module):
         zzs = zz + self.zz_seg_encoding
 
         # cat pp and latent
-        full_mask = zz.new_zeros(zz.shape[1], zz.shape[0])
+        full_mask = torch.zeros(zz.shape[1], zz.shape[0], dtype=torch.bool, device=zz.device)
         full_mask = torch.cat((pp_mask, full_mask), dim=1)  # batch seq_plus
 
         zzz = torch.cat((vvs, zzs), dim=0)  # seq_plus batch feat
@@ -214,7 +230,8 @@ class PGMG(nn.Module):
         if flag == "finetune":
             zzz, encoder_mask = zzz.detach(), encoder_mask.detach()
             vv, vvs, pp_mask = vv.detach(), vvs.detach(), pp_mask.detach()
-            zzz = self.fuse_anchor(zzz).unsqueeze(dim=0)
+            zzz = self.fuse_anchor(zzz, encoder_mask).unsqueeze(dim=0)
+            encoder_mask = encoder_mask.new_zeros((encoder_mask.shape[0], 1))
 
         # target
         _, target_length = targets.shape
@@ -307,13 +324,16 @@ class PGMG(nn.Module):
 
         zzz, encoder_mask = self.expand_then_fusing(z, pp_mask, vvs)
 
-        predict, scores = self._generate(zzz, random_sample=random_sample, return_score=True)
+        predict, scores = self._generate(zzz, encoder_mask, random_sample=random_sample, return_score=True)
 
         return predict, scores, kl_loss
 
-    def fuse_anchor(self, z):
+    def fuse_anchor(self, z, padding_mask):
         fu = torch.cat((z, self.anchor.expand(-1, z.shape[1], -1)))
-        pad_mask = fu.new_zeros(fu.shape[1], fu.shape[0])
+        anchor_mask = torch.zeros(
+            padding_mask.shape[0], self.anchor.shape[0], dtype=torch.bool, device=z.device
+        )
+        pad_mask = torch.cat((padding_mask, anchor_mask), dim=1)
         fu, _ = self.former_attention(fu, fu, fu, key_padding_mask=pad_mask)
         z = fu[0]
         return z
@@ -326,7 +346,8 @@ class PGMG(nn.Module):
         z = self.sample(pp_graphs.batch_size, pp_graphs.device)
         zzz, encoder_mask = self.expand_then_fusing(z, pp_mask, vvs)
 
-        zzz = self.fuse_anchor(zzz).unsqueeze(dim=0)
+        zzz = self.fuse_anchor(zzz, encoder_mask).unsqueeze(dim=0)
+        encoder_mask = encoder_mask.new_zeros((encoder_mask.shape[0], 1))
         predict = self._generate(zzz, encoder_mask, random_sample=random_sample, return_score=False)
         
         if return_z:
