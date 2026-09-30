@@ -34,7 +34,7 @@ from utils.file_utils import load_phar_file
 from utils.utils import seed_torch
 from utils.build_scoring_function import build_scoring_function
 from utils.dataset import Tokenizer, SemiSmilesDataset
-from utils.smiles2ppgraph import smiles2ppgraph
+from utils.smiles2ppgraph import get_batched_pharmacophore_types, smiles2ppgraph
 from utils.utils import stratified_sampling
 from torch.utils.data import DataLoader
 from train_chembl_baseline import CFG
@@ -136,8 +136,7 @@ def get_ppgraph(smiles_list):
         rsmiles = Chem.MolToSmiles(mol, isomericSmiles=False, canonical=False, doRandom=True)
         try:
             pp_graph, mapping = smiles2ppgraph(rsmiles)
-            pp_graph.ndata['h'] = \
-                torch.cat((pp_graph.ndata['type'], pp_graph.ndata['size'].reshape(-1, 1)), dim=1).float()
+            pp_graph.ndata['h'] = pp_graph.ndata['h'].float()
             pp_graph.edata['h'] = pp_graph.edata['dist'].reshape(-1, 1).float()
             pp_graphs.append(pp_graph)
         except Exception as e:
@@ -189,11 +188,11 @@ def finetune(inint_population, model, tokenizer, objective, args):
         int_results = sorted(int_results)
         
         # update threshold
-        if epoch > 0 and epoch % 10 == 0:
+        if epoch > 0 and epoch % 5 == 0:
             threshold += offset
         
         # store the molecules
-        int_candidate_set = int_results[:args.keep_top]
+        int_candidate_set = int_results[:int(len(int_results) * args.keep_top_ratio)]
         candidate_set += [s.smiles for s in int_candidate_set]
         elite_set += [s.smiles for s in int_candidate_set if s.score >= threshold]
                
@@ -203,7 +202,7 @@ def finetune(inint_population, model, tokenizer, objective, args):
         # run training
         if args.optimize_n_epochs > 0:
             train_dataset = SemiSmilesDataset(elite_set, tokenizer, use_random_input_smiles=True,
-                                              use_random_target_smiles=True)
+                                              use_random_target_smiles=True, include_atoms=True)
             train_loader = DataLoader(train_dataset,
                                       batch_size=args.batch_size,
                                       shuffle=True,
@@ -219,8 +218,7 @@ def finetune(inint_population, model, tokenizer, objective, args):
                                                                                          targets, flag="finetune")
 
                     x = torch.zeros(inputs.shape[0], 8, len(PP_TYPE_WEIGHT)).to(args.device)
-                    xx = pad_sequence(torch.split(pp_graphs.ndata['type'], tuple(pp_graphs.batch_num_nodes().cpu())),
-                                      batch_first=True)
+                    xx = get_batched_pharmacophore_types(pp_graphs)
                     x[:, :xx.shape[1], :] = xx
 
                     a = torch.Tensor(PP_TYPE_WEIGHT).to(args.device)
@@ -272,7 +270,7 @@ if __name__ == '__main__':
     parser.add_argument('--optimize_n_epochs', type=int, default=5, help='Number of epochs for optimization')
     parser.add_argument('--save_frequency', type=int, default=10, help='Frequency of saving models')
     parser.add_argument('--save_payloads', action='store_true', default=True, help='Whether to save payloads')
-    parser.add_argument('--keep_top', type=int, default=10000, help='Keep the top N molecules')
+    parser.add_argument('--keep_top_ratio', type=float, default=0.5, help='Keep the top N molecules')
     args = parser.parse_args()
 
     if args.seed != -1:
